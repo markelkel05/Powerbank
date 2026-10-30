@@ -52,6 +52,50 @@ psql -U postgres -d powerbank_erreserba -f database/seed.sql
 `seed.sql` exekutatu daiteke hainbat aldiz: ez ditu erregistroak bikoizten.
 Rolak derrigorrezkoak dira (`erabiltzaileak.id_rol` → `rolak` FK).
 
+### 1.1. Markelen `Markel.sql` dump-a erabiltzen baduzu
+
+Drive-ko `Markel.sql` fitxategiak **bi berezitasun** ditu, eta biek erroreak
+eragiten dituzte lehenengoan:
+
+**a) pg_dump-en formatu bitarra da (`PGDMP`), ez SQL testua.**
+`psql -f Markel.sql` eginez gero `input is a PostgreSQL custom-format dump`
+errorea ematen du. Horrela inportatu behar da:
+
+```bash
+pg_restore -U postgres -d powerbank_erreserba Markel.sql
+# edo, SQL garbia nahi baduzu:
+pg_restore -U postgres -f markel.sql Markel.sql && psql -U postgres -d powerbank_erreserba -f markel.sql
+```
+
+> Dumpa PostgreSQL **18.6**-rekin sortu zen (artxibo-formatu 1.16). `pg_restore`
+> zaharrak `unsupported version (1.16) in file header` errorea emango du:
+> erabili PostgreSQL 18ko `pg_restore`, edo eskatu dumpa SQL formatu hutsean
+> (`pg_dump -Fp`).
+
+**b) Eskema zaharra dauka (DATU BASEA.docx-ena), ez gaur egungo kodea erabiltzen duena.**
+Horregatik API-ak 500 erroreak ematen ditu: `column "activo" ... does not exist`,
+`relation "takillak_irudiak" does not exist`, `column "id_takilla" of relation
+"powerbank" does not exist`, eta `invalid input value for enum egoera_takillak:
+"mantentze_lanetan"`. Sintoma nagusia: **login-a eta erabiltzaileen zerrenda ez
+dabiltza**, eta kargaguneak ezin dira egoeraz iragazi.
+
+Konponbidea: migrazio-fitxategia exekutatu (datuak ez dira galtzen, irudiak beste
+taula batera mugitzen dira):
+
+```bash
+pg_dump -U postgres -Fc -f babeskopia.dump powerbank_erreserba     # babeskopia
+psql -U postgres -d powerbank_erreserba -f database/markel_eguneratu.sql
+```
+
+Migrazioak hau egiten du: `erabiltzaileak.activo` gehitzen du, `egoera_takillak`
+enumaren balioak azpimarrarekin berrizendatzen ditu, `takillak.irudia` →
+`takillak_irudiak` taulara mugitzen da, eta `powerbank.id_takilla` gehitzen du
+(postutik abiatuta betetzen da). Behin baino gehiagotan exekuta daiteke.
+
+> Oharra: dump horretan erabiltzaile bakarra dago, eta haren datuak placeholders
+> dira (`nan = 'string'`, `email = 'string'`). Ez du pasahitz ezagunik, beraz
+> proba-kontu bat sortu `seed.sql`-ekin edo `/auth/erregistratu` erabiliz.
+
 ---
 
 ## 2. Backend-a (FastAPI)
@@ -172,6 +216,11 @@ cd ERRONKA1/web-publikoa && python3 -m http.server 5500
 | Arazoa | Konponbidea |
 | --- | --- |
 | `500` erabiltzailea edo erreserba sortzean | `rolak` taula hutsik dago → exekutatu `database/seed.sql` |
+| `500` login egitean edo erabiltzaileen zerrendan | eskema zaharra (`Markel.sql`): exekutatu `database/markel_eguneratu.sql` |
+| `column "activo" ... does not exist` | dump zaharra: `database/markel_eguneratu.sql` |
+| `relation "takillak_irudiak" does not exist` | dump zaharra: `database/markel_eguneratu.sql` |
+| `invalid input value for enum egoera_takillak` | dump zaharra: `database/markel_eguneratu.sql` |
+| `input is a PostgreSQL custom-format dump` | `Markel.sql` ez da SQL testua: `pg_restore -d ... Markel.sql` |
 | `invalid command \restrict` dump-a inportatzean | kendu `\restrict`/`\unrestrict` lerroak edo erabili `psql` berria |
 | Web publikotik `Failed to fetch` | backend itzalita, edo portua ez dago CORS zerrendan |
 | `401 Saioa iraungi da` | tokena 8 ordukoa da: hasi saioa berriro |

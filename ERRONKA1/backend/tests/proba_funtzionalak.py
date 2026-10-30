@@ -376,6 +376,35 @@ with SessionLocal() as db:
 r = client.post(f"{BASE}/auth/login", json={"email": "jon@adibide.eus", "pasahitza": "123456"})
 egiaztatu("Erabiltzaile desaktibatuaren login-a debekatuta (403)", r.status_code == 403, str(r.text[:200]))
 
+# ------------------------------- datu zaharrak: zerrendak ez dira apurtu behar
+# Markelen dump zaharrean (Markel.sql) erabiltzaile bat "string" balioekin
+# zegoen eta nan/email luzerak ez zituen betetzen. Erantzun-eskemek zorrotzak
+# izanda, zerrenda osoa 500 errorearekin erortzen zen. Proba honek hori
+# gertatzen ez dela bermatzen du.
+with SessionLocal() as db:
+    db.add(
+        models.Erabiltzaileak(
+            nan="string", izena="string", abizenak="string",
+            email="string", pasahitza="string", helbidea="string", id_rol=1,
+        )
+    )
+    db.add(models.Takillak(izena="X", helbidea="ab", egoera="zerbitzuz_kanpo"))
+    db.commit()
+
+r = client.get(f"{BASE}/erabiltzaileak")
+egiaztatu(
+    "Dump zaharretako erabiltzaileak ez du zerrenda apurtzen",
+    r.status_code == 200 and any(e["email"] == "string" for e in r.json()),
+    str(r.text[:200]),
+)
+
+r = client.get(f"{BASE}/kargaguneak")
+egiaztatu(
+    "Kargagune izen laburrak ez du zerrenda apurtzen",
+    r.status_code == 200 and any(k["izena"] == "X" for k in r.json()),
+    str(r.text[:200]),
+)
+
 # ---------------------------------------------------------------- laburpena
 guztira = len(emaitzak)
 ondo = sum(1 for emaitza, _ in emaitzak if emaitza)

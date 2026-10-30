@@ -19,16 +19,22 @@ class ErabiltzaileLogin(BaseModel):
 
 
 # Erabiltzaileak zerrendatzeko (taula, zerrenda bat...)
+#
+# OHARRA: hau ERANTZUN-eskema da, ez sarrera-eskema. Beraz, ez dugu luzera-
+# murrizketarik jartzen hemendik. Arrazoia: datu-basean lehendik dauden
+# erregistroek (adib. dump zaharretako "string" balioekin) ezingo lukete
+# zerrenda osoa 500 errorearekin apurtu. Balidazio zorrotza sarrera-eskemetan
+# dago (CreateErabiltzaile, PatchErabiltzaile, Erregistroa).
 class ListErabiltzaileak(BaseModel):
     id_erab: int
-    nan: str = Field(min_length=9, max_length=9)
-    izena: str = Field(min_length=2)
-    abizenak: str = Field(min_length=2)
-    email: str = Field(max_length=200)
-    pasahitza: str = Field(min_length=3)
-    helbidea: str = Field(min_length=5)
-    id_rol: int = Field(ge=1, le=2)
-    activo: bool = Field(default=True)
+    nan: str
+    izena: str
+    abizenak: str
+    email: str
+    pasahitza: str
+    helbidea: str
+    id_rol: int
+    activo: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -235,10 +241,13 @@ class PatchTakilla(BaseModel):
     egoera: TakillakEgoeraEnum | None = Field(default=None)
 
 
+# Erantzun-eskema: luzera-murrizketarik gabe (balidazioa CreateTakilla /
+# PatchTakilla sarrera-eskemetan egiten da). Horrela datu-basean dauden
+# erregistro zaharrek ez dute zerrenda osoa apurtzen.
 class TakillaResponse(BaseModel):
     id_takilla: int
-    izena: str = Field(min_length=2, max_length=200)
-    helbidea: str = Field(min_length=3, max_length=250)
+    izena: str
+    helbidea: str
     egoera: TakillakEgoeraEnum
 
     model_config = ConfigDict(from_attributes=True)

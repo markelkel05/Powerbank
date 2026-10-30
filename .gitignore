@@ -1,0 +1,16 @@
+# Ingurune-fitxategiak eta datu-baseen kopia lokalak ez dira Git-era igotzen
+
+# Drive-tik deskargatutako dump-ak
+google_drive/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.db
+*.sqlite3
+
+# Node / Angular
+node_modules/
+dist/
+.angular/

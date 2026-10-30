@@ -23,6 +23,15 @@ uv sync            # edo: python -m venv .venv && pip install -e .
 uv run uvicorn main:app --reload
 ```
 
+Zure dump-a Markelen **`Markel.sql`** bada (eskema zaharra), irakurri
+`../NOLA-ABIARAZI.md` → *1.1. Markelen `Markel.sql` dump-a erabiltzen baduzu*:
+fitxategia `pg_dump`-en formatu bitarra da (`pg_restore` behar du) eta eskema
+zaharra du, beraz migrazioa exekutatu behar da:
+
+```bash
+psql -U postgres -d powerbank_erreserba -f database/markel_eguneratu.sql
+```
+
 - API-a: <http://localhost:8000>
 - Dokumentazio automatikoa: <http://localhost:8000/docs>
 - Kargaguneen irudiak: `http://localhost:8000/uploads/<fitxategia>`
@@ -123,8 +132,25 @@ cd ERRONKA1/backend
 DATABASE_URL="sqlite:///./_test.db" python tests/proba_funtzionalak.py
 ```
 
-60 egiaztapen: CRUD-a, erreserben arau guztiak, iragazkiak, ezabaketa/desaktibazioa,
-erabilgarritasuna eta autentifikazioa/baimenak.
+62 egiaztapen: CRUD-a, erreserben arau guztiak, iragazkiak, ezabaketa/desaktibazioa,
+erabilgarritasuna, autentifikazioa/baimenak eta dump zaharretako datuekiko
+bateragarritasuna (zerrendak ez dira 500 errorearekin erortzen).
+
+## Eskema-zaharraren migrazioa (`markel_eguneratu.sql`)
+
+Datu-basea eskema zaharrarekin sortu bada (`takillak.irudia`, `activo` gabe,
+`takillak_irudiak` gabe, enum-balioak marrarekin), kodea ez dator bat eta
+API-ak 500 erroreak ematen ditu. Migrazioak datuak mantenduz zuzentzen ditu:
+
+| Zaharra | Berria |
+| --- | --- |
+| `erabiltzaileak` (`activo` gabe) | `activo boolean NOT NULL DEFAULT true` |
+| `takillak.irudia` | `takillak_irudiak` taula (irudi bat baino gehiago onartzen du) |
+| `powerbank` (`id_takilla` gabe) | `powerbank.id_takilla` (postutik beteta) |
+| `'mantentze-lanetan'`, `'zerbitzuz kanpo'` | `'mantentze_lanetan'`, `'zerbitzuz_kanpo'` |
+
+Fitxategia idempotentea da: behin baino gehiagotan exekuta daiteke. Aurretik
+babeskopia egitea gomendatzen da (`pg_dump -Fc`).
 
 ## Ezagutzekoak / hurrengo pausoak
 
@@ -137,6 +163,10 @@ erabilgarritasuna eta autentifikazioa/baimenak.
 - **Pasahitzen eremua**: `GET /erabiltzaileak`-ek pasahitzaren hash-a itzultzen du
   oraindik (administrazio-taulak erakusten duelako). Etorkizunean kendu egin beharko
   litzateke zutabe hori.
+- **Erantzun-eskemak ez dira zorrotzak**: `ListErabiltzaileak` / `TakillaResponse`
+  ez dute luzera-murrizketarik, datu-basean dauden erregistro zaharrek (adib.
+  `nan = 'string'`) zerrenda osoa eror ez dezaten. Balidazioa sarrera-eskemetan
+  dago (`CreateErabiltzaile`, `PatchErabiltzaile`, `CreateTakilla`...).
 - **Powerbanken kudeaketa osoa**: Urkoren atala da; hemen irakurketa (`GET /powerbanks`)
   eta sorkuntza soilik daude, erreserba-formularioek behar dituztelako.
 - **Atal publikoa**: `ERRONKA1/web-publikoa/` karpetan hasita dago (HTML + JS +
