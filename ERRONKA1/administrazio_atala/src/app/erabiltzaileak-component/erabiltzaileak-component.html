@@ -1,0 +1,225 @@
+<body>
+    <div class="grid-container">
+        <h2 class="text-center mt-5 mb-5">ERABILTZAILEEN ZERRENDA</h2>
+
+        <!-- AG Grid Component -->
+        <div class=" w-80 d-flex justify-content-center mb-5">
+            <button type="button" class="btn btn-success"
+                (click)="openForm()">Sortu</button>
+        </div>
+
+        <div class="d-flex justify-content-center w-100">
+
+            <ag-grid-angular
+                style="width: 80%; height: 400px;"
+                [rowData]="erabiltzaileak()"
+                [columnDefs]="colDefs"
+                [defaultColDef]="defaultColDef"
+                [pagination]="pagination"
+                [paginationPageSize]="paginationPageSize"
+                [paginationPageSizeSelector]="paginationPageSizeSelector"
+                (gridReady)="onGridReady($event)"
+                (selectionChanged)="onSelectionChanged($event)">
+            </ag-grid-angular>
+        </div>
+
+        @if (formulario()) {
+        <div class="modal-backdrop fade show"></div>
+        <dialog open class="modal-dialog-custom card p-4 shadow-lg">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="m-0">Erabiltzaile berria</h5>
+                <button type="button" class="btn-close"
+                    (click)="closeForm()"></button>
+            </div>
+
+            <form #userForm="ngForm"
+                (ngSubmit)="userForm.form.valid && onSubmit()">
+                <div class="mb-3">
+                    <label for="nan" class="form-label">NAN:</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="nan"
+                        name="nan"
+                        [(ngModel)]="newUser.nan"
+                        #nan="ngModel"
+                        required
+                        minlength="9"
+                        maxlength="9" />
+                    @if (nan.invalid && (nan.dirty || nan.touched)) {
+                    <div class="form-text text-danger">NANak 9 karaktere izan
+                        behar ditu.</div>
+                    }
+                </div>
+
+                <!-- IZENA -->
+                <div class="mb-3">
+                    <label for="izena" class="form-label">Izena:</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="izena"
+                        name="izena"
+                        [(ngModel)]="newUser.izena"
+                        #izena="ngModel"
+                        required
+                        minlength="2" />
+                    @if (izena.invalid && (izena.dirty || izena.touched)) {
+                    <div class="form-text text-danger">Izena gutxienez 2
+                        karaktere izan behar ditu.</div>
+                    }
+                </div>
+
+                <!-- ABIZENAK -->
+                <div class="mb-3">
+                    <label for="abizenak" class="form-label">Abizenak:</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="abizenak"
+                        name="abizenak"
+                        [(ngModel)]="newUser.abizenak"
+                        #abizenak="ngModel"
+                        required
+                        minlength="2" />
+                    @if (abizenak.invalid && (abizenak.dirty ||
+                    abizenak.touched)) {
+                    <div class="form-text text-danger">Abizenek gutxienez 2
+                        karaktere izan behar dituzte.</div>
+                    }
+                </div>
+
+                <!-- HELBIDEA -->
+                <div class="mb-3">
+                    <label for="helbidea" class="form-label">Helbidea:</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="helbidea"
+                        name="helbidea"
+                        [(ngModel)]="newUser.helbidea"
+                        #helbidea="ngModel"
+                        required
+                        minlength="5" />
+                    @if (helbidea.invalid && (helbidea.dirty ||
+                    helbidea.touched)) {
+                    <div class="form-text text-danger">Helbideak gutxienez 5
+                        karaktere izan behar ditu.</div>
+                    }
+                </div>
+
+                <!-- ROLA -->
+                <div class="mb-3">
+                    <label for="rola" class="form-label">Rola:</label>
+                    <select
+                        class="form-select"
+                        id="rola"
+                        name="id_rol"
+                        [(ngModel)]="newUser.id_rol"
+                        required>
+                        <option [ngValue]="1">Administratzailea</option>
+                        <option [ngValue]="2">Erabiltzaile arrunta</option>
+                    </select>
+                </div>
+
+                <!-- EMAIL -->
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email:</label>
+                    <input
+                        type="email"
+                        class="form-control"
+                        id="email"
+                        name="email"
+                        [(ngModel)]="newUser.email"
+                        #email="ngModel"
+                        required
+                        email />
+                    @if (email.invalid && (email.dirty || email.touched)) {
+                    <div class="form-text text-danger">
+                        @if (email.errors?.['required']) { Emaila ezin da hutsik
+                        egon. }
+                        @if (email.errors?.['email']) { Sarrera honek email
+                        balioduna izan behar du. }
+                    </div>
+                    }
+                </div>
+
+                <!-- PASAHITZA -->
+                <div class="mb-3">
+                    <label for="pasahitza" class="form-label">Pasahitza:</label>
+                    <input
+                        type="password"
+                        class="form-control"
+                        id="pasahitza"
+                        name="pasahitza"
+                        [(ngModel)]="newUser.pasahitza"
+                        #pasahitza="ngModel"
+                        required
+                        minlength="6" />
+                    @if (pasahitza.invalid && (pasahitza.dirty ||
+                    pasahitza.touched)) {
+                    <div class="form-text text-danger">
+                        @if (pasahitza.errors?.['required']) { Pasahitza ezin da
+                        hutsik egon. }
+                        @if (pasahitza.errors?.['minlength']) { Pasahitzak
+                        gutxienez 6 karaktere izan behar ditu. }
+                    </div>
+                    }
+                </div>
+
+                <!-- ERREPIKATU PASAHITZA -->
+                <div class="mb-3">
+                    <label for="errepikatuPasahitza"
+                        class="form-label">Errepikatu pasahitza:</label>
+                    <input
+                        type="password"
+                        class="form-control"
+                        id="errepikatuPasahitza"
+                        name="errepikatuPasahitza"
+                        [(ngModel)]="errepikatuPasahitza"
+                        #errepikatu="ngModel"
+                        required />
+                    @if (newUser.pasahitza !== errepikatuPasahitza &&
+                    (errepikatu.dirty || errepikatu.touched)) {
+                    <div class="form-text text-danger">Pasahitzak ez datoz
+                        bat</div>
+                    }
+                </div>
+
+                @if (gordetzeErrorea()) {
+                <div class="alert alert-danger" role="alert">{{
+                    gordetzeErrorea() }}</div>
+                }
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button type="button" class="btn btn-secondary"
+                        (click)="closeForm()">Utzi</button>
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        [disabled]="userForm.invalid || newUser.pasahitza !== errepikatuPasahitza || gordetzen()">
+                        {{ gordetzen() ? 'Gordetzen...' : 'Gorde' }}
+                    </button>
+                </div>
+            </form>
+        </dialog>
+        }
+    </div>
+
+    <h1 class="text-center mt-5 mb-3">Erabiltzaileen rolen kudeaketa</h1>
+    <div class="container-fluid mt-3">
+        <div class="row">
+            <div class="col-12 col-md-6 col-lg-4 ms-3 ms-md-4">
+                <mat-form-field class="w-100" appearance="fill">
+                    <mat-label>Erabiltzaileen rolak kudeatu</mat-label>
+                    <mat-select>
+                        @for (item of erabiltzaileak(); track item) {
+                        <mat-option
+                            [value]="item.id_erab">{{item.izena}}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            </div>
+        </div>
+    </div>
+</body>
