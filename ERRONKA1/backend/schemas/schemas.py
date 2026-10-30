@@ -33,6 +33,16 @@ class ListErabiltzaileak(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# Atal publikotik norberak erregistratzeko (rola beti 2 = erabiltzaile arrunta)
+class Erregistroa(BaseModel):
+    nan: str = Field(min_length=9, max_length=9)
+    izena: str = Field(min_length=2)
+    abizenak: str = Field(min_length=2)
+    email: str = Field(max_length=200)
+    pasahitza: str = Field(min_length=6)
+    helbidea: str = Field(min_length=5)
+
+
 # Erabiltzaile bat sortzeko (datu basean gordetzeko eskema)
 class CreateErabiltzaile(BaseModel):
     nan: str = Field(min_length=9, max_length=9)
@@ -42,6 +52,26 @@ class CreateErabiltzaile(BaseModel):
     pasahitza: str = Field(min_length=6)
     helbidea: str = Field(min_length=5)
     id_rol: int = Field(ge=1, le=2)
+
+
+# Atal publikorako erabiltzailearen datuak (pasahitza EZ da inoiz bidaltzen)
+class ErabiltzaileSegurua(BaseModel):
+    id_erab: int
+    nan: str
+    izena: str
+    abizenak: str
+    email: str
+    helbidea: str
+    id_rol: int
+    activo: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    erabiltzailea: ErabiltzaileSegurua
 
 
 class PatchErabiltzaile(BaseModel):
@@ -219,6 +249,7 @@ class KargaguneResponse(TakillaResponse):
 
     irudiak: list[str] = Field(default_factory=list)
     postuak_kopurua: int = 0
+    postu_libreak: int = 0
     powerbank_kopurua: int = 0
     erreserba_aktiboak: int = 0
 

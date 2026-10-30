@@ -53,6 +53,18 @@ backend/
 
 ## Endpoint nagusiak
 
+### Autentifikazioa
+
+| Metodoa | Bidea | Azalpena |
+| --- | --- | --- |
+| POST | `/alokaziosistema/auth/registratu` | Kontua sortu (rol arrunta) + tokena |
+| POST | `/alokaziosistema/auth/login` | Saioa hasi + tokena |
+| GET | `/alokaziosistema/auth/ni` | Norberaren datuak (tokenarekin) |
+
+Tokena `Authorization: Bearer <tokena>` goiburuan bidaltzen da. `SECRET_KEY`
+ingurune-aldagaiarekin sinatzen da eta 8 orduko bizitza du. Pasahitzak bcrypt-ekin
+hashatzen dira (testu lauan zeuden zaharrak login egitean migratzen dira).
+
 ### Kargaguneak (takillak)
 
 | Metodoa | Bidea | Azalpena |
@@ -79,6 +91,7 @@ backend/
 | Metodoa | Bidea | Azalpena |
 | --- | --- | --- |
 | GET | `/alokaziosistema/erreserbak/zerrenda?id_erab=&id_takilla=&id_power=&hasiera=&bukaera=&egoera=` | Administrazio-taulako zerrenda (izenekin) |
+| GET | `/alokaziosistema/erreserbak/nireak` | Saioa hasitakoaren erreserbak (tokena) |
 | GET | `/alokaziosistema/erreserbak` | Zerrenda soila |
 | GET | `/alokaziosistema/erreserbak/{id}` | Erreserba bat |
 | POST | `/alokaziosistema/erreserbak/post` | Erreserba berria (arau guztiak egiaztatuta) |
@@ -110,17 +123,23 @@ cd ERRONKA1/backend
 DATABASE_URL="sqlite:///./_test.db" python tests/proba_funtzionalak.py
 ```
 
-41 egiaztapen: CRUD-a, erreserben arau guztiak, iragazkiak, ezabaketa/desaktibazioa
-eta erabilgarritasuna.
+60 egiaztapen: CRUD-a, erreserben arau guztiak, iragazkiak, ezabaketa/desaktibazioa,
+erabilgarritasuna eta autentifikazioa/baimenak.
 
 ## Ezagutzekoak / hurrengo pausoak
 
-- **Autentifikazioa**: `services/auth.py` prestatuta dago (bcrypt), baina oraindik ez
-  dago login/JWT endpoint-ik. Bitartean, baimenak `id_erab` / `admin` parametroen
-  bidez egiaztatzen dira. Benetako segurtasunerako token bidezko saioa falta da, eta
-  datu-baseko pasahitzak hash bihurtu behar dira.
+- **Tokenak**: JWT itxurako tokenak dira (`header.payload.signature`), baina HMAC-SHA256
+  stdlib-ekin sinatuta daude menpekotasun gehigarririk ez sartzeko. Ekoizpenean
+  `SECRET_KEY` aldatu eta, nahi izanez gero, `PyJWT`-era pasa daiteke.
+- **Baimenak**: endpoint zaharrek `id_erab` / `admin` parametroak onartzen jarraitzen
+  dute (Angular administrazioa tokenik gabe dabil). Tokena badator, ordea, nortasuna eta
+  rola tokenetik hartzen dira beti.
+- **Pasahitzen eremua**: `GET /erabiltzaileak`-ek pasahitzaren hash-a itzultzen du
+  oraindik (administrazio-taulak erakusten duelako). Etorkizunean kendu egin beharko
+  litzateke zutabe hori.
 - **Powerbanken kudeaketa osoa**: Urkoren atala da; hemen irakurketa (`GET /powerbanks`)
-  eta sorkuntza soilik gehitu dira, erreserba-formularioak behar duelako.
-- **Atal publikoa (JS + Bootstrap)**: oraindik ez da egin (Ikerren atala).
+  eta sorkuntza soilik daude, erreserba-formularioek behar dituztelako.
+- **Atal publikoa**: `ERRONKA1/web-publikoa/` karpetan hasita dago (HTML + JS +
+  Bootstrap). Mapa interaktiboa eta udalerri anitzeko hautatzailea 2. fasekoak dira.
 - Endpoint zaharrak ez dira ezabatu: `/takillak/*` eta `/erabiltzaileak/*` mantentzen
   dira, eta aldamenean `/kargaguneak/*` berriak daude.

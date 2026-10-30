@@ -1,0 +1,223 @@
+:root {
+  --marka: #0f766e;
+  --marka-argia: #14b8a6;
+  --marka-iluna: #115e59;
+  --azentua: #22c55e;
+  --gainazala: #f6f8fb;
+  --testua: #1f2937;
+  --ertzada: #e5e7eb;
+}
+
+body {
+  background-color: var(--gainazala);
+  color: var(--testua);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  min-height: 100vh;
+}
+
+a {
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------- nabigazioa */
+
+.nabigazioa {
+  background: linear-gradient(120deg, var(--marka-iluna), var(--marka));
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  box-shadow: 0 2px 12px rgba(15, 118, 110, 0.25);
+}
+
+.nabigazioa .nav-link {
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 500;
+  border-radius: 0.5rem;
+  padding-inline: 0.85rem;
+}
+
+.nabigazioa .nav-link:hover,
+.nabigazioa .nav-link.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.nabigazioa .navbar-toggler-icon {
+  filter: invert(1);
+}
+
+/* ------------------------------------------------------------------- heroia */
+
+.heroia {
+  background: linear-gradient(135deg, var(--marka-iluna) 0%, var(--marka) 55%, var(--marka-argia) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.heroia::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.heroia .container {
+  position: relative;
+  z-index: 1;
+}
+
+.heroi-ikonoa {
+  font-size: 11rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.22);
+  text-shadow: 0 0 60px rgba(34, 197, 94, 0.6);
+}
+
+/* ------------------------------------------------------------------ kartak */
+
+.kargagune-karta {
+  border-radius: 1rem;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.kargagune-karta:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0.75rem 1.75rem rgba(15, 23, 42, 0.12) !important;
+}
+
+.karta-irudia {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  background: #e2e8f0;
+}
+
+.irudi-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f2f1, #dbeafe);
+  color: var(--marka);
+  font-size: 2.5rem;
+}
+
+/* ------------------------------------------------------------------ modala */
+
+.modal-irudi {
+  width: 100%;
+  border-radius: 0.85rem;
+  object-fit: cover;
+}
+
+.modal-irudi.nagusia {
+  max-height: 260px;
+  min-height: 180px;
+}
+
+.irudi-miniatura {
+  width: 64px;
+  height: 64px;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.irudi-miniatura:hover {
+  transform: scale(1.05);
+}
+
+.irudi-miniatura img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ------------------------------------------------------------------ besteak */
+
+.card {
+  border-radius: 1rem;
+}
+
+.avatara {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--marka), var(--marka-argia));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--marka);
+  --bs-btn-border-color: var(--marka);
+  --bs-btn-hover-bg: var(--marka-iluna);
+  --bs-btn-hover-border-color: var(--marka-iluna);
+  --bs-btn-active-bg: var(--marka-iluna);
+  --bs-btn-active-border-color: var(--marka-iluna);
+  --bs-btn-disabled-bg: var(--marka);
+  --bs-btn-disabled-border-color: var(--marka);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--marka);
+  --bs-btn-border-color: var(--marka);
+  --bs-btn-hover-bg: var(--marka);
+  --bs-btn-hover-border-color: var(--marka);
+  --bs-btn-active-bg: var(--marka-iluna);
+  --bs-btn-active-border-color: var(--marka-iluna);
+}
+
+.nav-pills .nav-link {
+  color: var(--marka);
+  border-radius: 0.6rem;
+}
+
+.nav-pills .nav-link.active {
+  background-color: var(--marka);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--marka-argia);
+  box-shadow: 0 0 0 0.2rem rgba(20, 184, 166, 0.2);
+}
+
+.oina {
+  background: #0b3b38;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.oina a {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.oina a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+#jakinarazpenak .alert {
+  border: none;
+  border-radius: 0.85rem;
+}
+
+/* Mugikorretan taulak hobeto ikusteko */
+@media (max-width: 576px) {
+  .heroi-ikonoa {
+    font-size: 6rem;
+  }
+
+  .table {
+    font-size: 0.875rem;
+  }
+}

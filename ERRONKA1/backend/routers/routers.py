@@ -2,16 +2,96 @@ from datetime import datetime
 from typing import Annotated
 
 from database import database
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile, status
 from models import models
 from schemas import schemas
-from services import services, uploads
+from services import auth, services, uploads
 from sqlalchemy.orm import Session
 
 DbSession = Annotated[Session, Depends(database.get_session)]
 
 
+# ---------------------------------------------------------------------------
+# AUTENTIFIKAZIOA: Authorization goiburua aukerakoa da (endpoint zaharrek ez
+# dute tokenik behar), baina badator, nortasuna tokenetik hartzen da.
+# ---------------------------------------------------------------------------
+
+
+def erabiltzaile_korrontea(
+    session: DbSession, authorization: Annotated[str | None, Header()] = None
+) -> models.Erabiltzaileak | None:
+    if not authorization:
+        return None
+
+    eskema, _, tokena = authorization.partition(" ")
+    if eskema.lower() != "bearer" or not tokena.strip():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization goiburuak 'Bearer <tokena>' formatua behar du.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    id_erab = auth.irakurri_tokena(tokena.strip())
+    erabiltzailea = session.get(models.Erabiltzaileak, id_erab)
+    if erabiltzailea is None or erabiltzailea.activo is False:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Erabiltzailea ez da existitzen edo desaktibatuta dago.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return erabiltzailea
+
+
+def erabiltzaile_derrigorrezkoa(
+    erabiltzailea: Annotated[models.Erabiltzaileak | None, Depends(erabiltzaile_korrontea)],
+) -> models.Erabiltzaileak:
+    if erabiltzailea is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Saioa hasi behar duzu.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return erabiltzailea
+
+
+ErabiltzaileKorrontea = Annotated[
+    models.Erabiltzaileak | None, Depends(erabiltzaile_korrontea)
+]
+DerrigorrezkoErabiltzailea = Annotated[
+    models.Erabiltzaileak, Depends(erabiltzaile_derrigorrezkoa)
+]
+
+
 powerbank_router = APIRouter(prefix="/alokaziosistema", tags=["POWERBANKS"])
+
+################# AUTENTIFIKAZIOA #################
+
+
+@powerbank_router.post(
+    "/auth/login", status_code=200, response_model=schemas.TokenResponse
+)
+def login(datuak: schemas.ErabiltzaileLogin, session: DbSession):
+    """Emaila eta pasahitzarekin saioa hasi eta tokena lortu."""
+    return services.login_erabiltzailea(session, datuak)
+
+
+@powerbank_router.post(
+    "/auth/erregistratu", status_code=201, response_model=schemas.TokenResponse
+)
+def erregistratu(datuak: schemas.Erregistroa, session: DbSession):
+    """Atal publikoko erregistroa (rola beti erabiltzaile arrunta)."""
+    erabiltzailea = services.erregistratu_erabiltzailea(session, datuak)
+    return {
+        "access_token": auth.sortu_tokena(erabiltzailea.id_erab),
+        "token_type": "bearer",
+        "erabiltzailea": erabiltzailea,
+    }
+
+
+@powerbank_router.get("/auth/ni", status_code=200, response_model=schemas.ErabiltzaileSegurua)
+def ni(erabiltzailea: DerrigorrezkoErabiltzailea):
+    """Saioa hasita dagoen erabiltzailearen datuak."""
+    return erabiltzailea
 
 ################# GET ENDPOINTAK #################
 
@@ -144,6 +224,16 @@ def get_erreserbak_zerrenda(
 
 
 @powerbank_router.get(
+    "/erreserbak/nireak",
+    status_code=200,
+    response_model=list[schemas.ErreserbaXehetasuna],
+)
+def get_nire_erreserbak(session: DbSession, erabiltzailea: DerrigorrezkoErabiltzailea):
+    """Saioa hasita dagoen erabiltzailearen erreserbak."""
+    return services.nire_erreserbak(session, erabiltzailea.id_erab)
+
+
+@powerbank_router.get(
     "/erreserbak", status_code=status.HTTP_200_OK, response_model=list[schemas.ErreserbaResponse]
 )
 def get_erreserbak(session: DbSession):
@@ -209,15 +299,38 @@ def create_powerbank(session: DbSession, powerbank: schemas.CreatePowerbank):
 @powerbank_router.post(
     "/erreserbak/post", status_code=201, response_model=schemas.ErreserbaResponse
 )
-def create_erreserba(session: DbSession, erreserba: schemas.ErreserbaSortu):
+def create_erreserba(
+    session: DbSession,
+    erreserba: schemas.ErreserbaSortu,
+    erabiltzailea: ErabiltzaileKorrontea,
+):
     """Erreserba berria: negozio-arau guztiak zerbitzarian egiaztatzen dira."""
+    if (
+        erabiltzailea is not None
+        and erabiltzailea.id_rol != 1
+        and erabiltzailea.id_erab != erreserba.id_erab
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ezin duzu beste erabiltzaile baten izenean erreserbarik egin.",
+        )
     return services.sortu_erreserba(session, erreserba)
 
 
 ################# PATCH ENDPOINTAK #################
 
 @powerbank_router.patch("/erabiltzaileak/{id}/eguneratu", status_code=200, response_model=schemas.ListErabiltzaileak)
-def update_erabiltzaile(id: int, erabiltzaile: schemas.PatchErabiltzaile, session: DbSession):
+def update_erabiltzaile(
+    id: int,
+    erabiltzaile: schemas.PatchErabiltzaile,
+    session: DbSession,
+    korrontea: ErabiltzaileKorrontea,
+):
+    if korrontea is not None and korrontea.id_rol != 1 and korrontea.id_erab != id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ezin dituzu beste erabiltzaile baten datuak aldatu.",
+        )
     return services.patch_erabiltzailea(session, id, erabiltzaile)
 
 
@@ -260,7 +373,19 @@ def powerbank_tokia_aldatu(session: DbSession, id: int, powerbank: schemas.Power
 
 
 @powerbank_router.patch("/erreserbak/{id}/eguneratu", status_code=200, response_model=schemas.ErreserbaResponse)
-def update_erreserba(id: int, erreserba: schemas.ErreserbaEguneratu, session: DbSession):
+def update_erreserba(
+    id: int,
+    erreserba: schemas.ErreserbaEguneratu,
+    session: DbSession,
+    erabiltzailea: ErabiltzaileKorrontea,
+):
+    if erabiltzailea is not None:
+        db_erreserba = services.get_erreserba(session, id)
+        if erabiltzailea.id_rol != 1 and db_erreserba.id_erab != erabiltzailea.id_erab:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Ezin duzu beste erabiltzaile baten erreserba aldatu.",
+            )
     return services.eguneratu_erreserba(session, id, erreserba)
 
 
@@ -268,6 +393,7 @@ def update_erreserba(id: int, erreserba: schemas.ErreserbaEguneratu, session: Db
 def ezeztatu_erreserba(
     id: int,
     session: DbSession,
+    erabiltzailea: ErabiltzaileKorrontea,
     id_erab: int | None = None,
     admin: bool = False,
 ):
@@ -277,6 +403,9 @@ def ezeztatu_erreserba(
     (5. negozio-araua). ``admin=true`` bada, administratzaileak edozein
     erreserba kudea dezake (6. negozio-araua).
     """
+    if erabiltzailea is not None:
+        id_erab = erabiltzailea.id_erab
+        admin = erabiltzailea.id_rol == 1
     return services.ezeztatu_erreserba(session, id, id_erab, admin)
 
 
@@ -285,9 +414,13 @@ def update_erreserba_egoera(
     id: int,
     egoera: schemas.ErreserbaEgoeraPatch,
     session: DbSession,
+    erabiltzailea: ErabiltzaileKorrontea,
     id_erab: int | None = None,
     admin: bool = False,
 ):
+    if erabiltzailea is not None:
+        id_erab = erabiltzailea.id_erab
+        admin = erabiltzailea.id_rol == 1
     return services.aldatu_erreserba_egoera(session, id, egoera.egoera, id_erab, admin)
 
 

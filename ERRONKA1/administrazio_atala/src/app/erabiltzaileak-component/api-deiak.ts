@@ -18,7 +18,7 @@ export class ApiDeiak {
 
     editatuErabiltzaileak(id: number, erabiltzaile: ErabiltzaileCreate): Observable<ErabiltzaileResponse> {
         const url = `http://localhost:8000/alokaziosistema/erabiltzaileak/${id}/eguneratu`;
-        return this.http.put<ErabiltzaileResponse>(url, erabiltzaile);
+        return this.http.patch<ErabiltzaileResponse>(url, erabiltzaile);
     }
 
     ezabatuErabiltzailea(id: number): Observable<void> {
@@ -33,6 +33,6 @@ export class ApiDeiak {
 
     desaktibatuErabiltzailea(id: number): Observable<ErabiltzaileResponse> {
         const url = `http://localhost:8000/alokaziosistema/erabiltzaileak/${id}/desaktibatu`;
-        return this.http.put<ErabiltzaileResponse>(url, {});
+        return this.http.patch<ErabiltzaileResponse>(url, {});
     }
 }

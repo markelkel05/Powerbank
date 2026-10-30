@@ -265,6 +265,117 @@ r = client.get(f"{BASE}/takillak/1/postIrudia")
 r = client.post(f"{BASE}/takillak/1/postIrudia", json={"url": "https://adibide.eus/beste.png"})
 egiaztatu("POST /takillak/{id}/postIrudia (Urkorena)", r.status_code == 201, str(r.text[:200]))
 
+# ---------------------------------------------------------------- autentifikazioa
+erregistroa = {
+    "nan": "33333333C",
+    "izena": "Maite",
+    "abizenak": "Erregistro",
+    "email": "maite@adibide.eus",
+    "pasahitza": "sekretua123",
+    "helbidea": "Kale Berria 3",
+}
+
+r = client.post(f"{BASE}/auth/erregistratu", json=erregistroa)
+egiaztatu("POST /auth/erregistratu", r.status_code == 201 and r.json()["access_token"], str(r.text[:200]))
+token_maite = r.json().get("access_token") if r.status_code == 201 else ""
+id_maite = r.json().get("erabiltzailea", {}).get("id_erab") if r.status_code == 201 else None
+
+r = client.post(f"{BASE}/auth/erregistratu", json=erregistroa)
+egiaztatu("Erregistro bikoiztua ez da onartzen (409)", r.status_code == 409, str(r.text[:200]))
+
+r = client.post(f"{BASE}/auth/login", json={"email": "maite@adibide.eus", "pasahitza": "sekretua123"})
+egiaztatu("Login zuzena (pasahitz hasheaduna)", r.status_code == 200, str(r.text[:200]))
+
+r = client.post(f"{BASE}/auth/login", json={"email": "maite@adibide.eus", "pasahitza": "oker"})
+egiaztatu("Login okerra (401)", r.status_code == 401, str(r.text[:200]))
+
+# Hasieran testu lauan zegoen pasahitza: login egitean hash bihurtzen da
+r = client.post(f"{BASE}/auth/login", json={"email": "ane@adibide.eus", "pasahitza": "123456"})
+egiaztatu("Testu lauko pasahitz zaharra onartzen da", r.status_code == 200, str(r.text[:200]))
+token_ane = r.json().get("access_token") if r.status_code == 200 else ""
+with SessionLocal() as db:
+    gordea = db.get(models.Erabiltzaileak, 1).pasahitza
+egiaztatu("Loginaren ondoren pasahitza hashatuta dago", gordea.startswith("$2"), gordea[:12])
+
+r = client.get(f"{BASE}/auth/ni", headers={"Authorization": f"Bearer {token_ane}"})
+egiaztatu("GET /auth/ni tokenarekin", r.status_code == 200 and r.json()["id_erab"] == 1, str(r.text[:150]))
+egiaztatu(
+    "Erantzun publikoan ez da pasahitzik agertzen",
+    "pasahitza" not in r.json(),
+    str(sorted(r.json().keys())),
+)
+
+r = client.get(f"{BASE}/auth/ni")
+egiaztatu("GET /auth/ni tokenik gabe (401)", r.status_code == 401, str(r.text[:150]))
+
+r = client.get(f"{BASE}/auth/ni", headers={"Authorization": "Bearer tokenfaltsua"})
+egiaztatu("Token faltsua baztertzen da (401)", r.status_code == 401, str(r.text[:150]))
+
+# Maiteren erreserba propioa
+hasiera_maite = orain + timedelta(days=6)
+r = client.post(
+    f"{BASE}/erreserbak/post",
+    headers={"Authorization": f"Bearer {token_maite}"},
+    json={"id_erab": id_maite, "id_power": 1,
+          "erreserba_hasiera": iso(hasiera_maite),
+          "erreserba_bukaera": iso(hasiera_maite + timedelta(hours=1)),
+          "id_hasiera_takilla": 1, "id_hasiera_postua": 1},
+)
+egiaztatu("Erreserba tokenarekin (norberaren izenean)", r.status_code == 201, str(r.text[:200]))
+erreserba_maite = r.json().get("id_erreserba") if r.status_code == 201 else None
+
+r = client.post(
+    f"{BASE}/erreserbak/post",
+    headers={"Authorization": f"Bearer {token_maite}"},
+    json={"id_erab": 1, "id_power": 1,
+          "erreserba_hasiera": iso(hasiera_maite + timedelta(days=1)),
+          "erreserba_bukaera": iso(hasiera_maite + timedelta(days=1, hours=1)),
+          "id_hasiera_takilla": 1, "id_hasiera_postua": 1},
+)
+egiaztatu("Beste baten izenean erreserbatzea debekatuta (403)", r.status_code == 403, str(r.text[:200]))
+
+r = client.get(f"{BASE}/erreserbak/nireak", headers={"Authorization": f"Bearer {token_maite}"})
+egiaztatu(
+    "GET /erreserbak/nireak erreserba propioak soilik",
+    r.status_code == 200 and all(e["id_erab"] == id_maite for e in r.json()),
+    str(r.text[:200]),
+)
+
+r = client.get(f"{BASE}/erreserbak/nireak")
+egiaztatu("GET /erreserbak/nireak tokenik gabe (401)", r.status_code == 401, str(r.text[:150]))
+
+r = client.patch(
+    f"{BASE}/erreserbak/{erreserba_maite}/ezeztatu",
+    headers={"Authorization": f"Bearer {token_ane}"},
+)
+egiaztatu("Beste baten erreserba ezeztatzea debekatuta (403)", r.status_code == 403, str(r.text[:200]))
+
+r = client.patch(
+    f"{BASE}/erreserbak/{erreserba_maite}/ezeztatu",
+    headers={"Authorization": f"Bearer {token_maite}"},
+)
+egiaztatu("Norberaren erreserba ezeztatzea tokenarekin", r.status_code == 200 and r.json()["egoera"] == "ezeztatuta", str(r.text[:200]))
+
+r = client.patch(
+    f"{BASE}/erabiltzaileak/1/eguneratu",
+    headers={"Authorization": f"Bearer {token_maite}"},
+    json={"izena": "Lapur"},
+)
+egiaztatu("Beste baten datuak aldatzea debekatuta (403)", r.status_code == 403, str(r.text[:200]))
+
+r = client.patch(
+    f"{BASE}/erabiltzaileak/{id_maite}/eguneratu",
+    headers={"Authorization": f"Bearer {token_maite}"},
+    json={"helbidea": "Helbide berria 9"},
+)
+egiaztatu("Norberaren datuak aldatzea baimenduta", r.status_code == 200 and r.json()["helbidea"] == "Helbide berria 9", str(r.text[:200]))
+
+with SessionLocal() as db:
+    db.get(models.Erabiltzaileak, 2).activo = False
+    db.commit()
+r = client.post(f"{BASE}/auth/login", json={"email": "jon@adibide.eus", "pasahitza": "123456"})
+egiaztatu("Erabiltzaile desaktibatuaren login-a debekatuta (403)", r.status_code == 403, str(r.text[:200]))
+
 # ---------------------------------------------------------------- laburpena
 guztira = len(emaitzak)
 ondo = sum(1 for emaitza, _ in emaitzak if emaitza)

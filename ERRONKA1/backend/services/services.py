@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from models import models
 from schemas import schemas
+from services import auth
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
@@ -82,7 +83,10 @@ def delete_erabiltzaile(db: Session, id: int):
 
 
 def post_erabiltzaile(db: Session, erabiltzaile: schemas.CreateErabiltzaile):
-    db_erabiltzaile = models.Erabiltzaileak(**erabiltzaile.model_dump(), activo=True)
+    datuak = erabiltzaile.model_dump()
+    # Pasahitzak ez dira inoiz testu lauan gordetzen
+    datuak["pasahitza"] = auth.prestatu_pasahitza(datuak["pasahitza"])
+    db_erabiltzaile = models.Erabiltzaileak(**datuak, activo=True)
     try:
         db.add(db_erabiltzaile)
         db.commit()
@@ -101,7 +105,11 @@ def patch_erabiltzailea(db: Session, id: int, erabiltzaile: schemas.PatchErabilt
     if not db_erabiltzaile:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ez da existitzen")
 
-    for field, value in erabiltzaile.model_dump(exclude_unset=True).items():
+    datuak = erabiltzaile.model_dump(exclude_unset=True)
+    if datuak.get("pasahitza"):
+        datuak["pasahitza"] = auth.prestatu_pasahitza(datuak["pasahitza"])
+
+    for field, value in datuak.items():
         setattr(db_erabiltzaile, field, value)
 
     try:
@@ -132,6 +140,61 @@ def update_rola(db: Session, id: int, rola: int):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Errorea") from e
 
 
+def erregistratu_erabiltzailea(db: Session, datuak: schemas.Erregistroa):
+    """Atal publikoko erregistroa: rola beti 2 (erabiltzaile arrunta)."""
+    db_erabiltzailea = models.Erabiltzaileak(
+        **datuak.model_dump(exclude={"pasahitza"}),
+        pasahitza=auth.get_password_hash(datuak.pasahitza),
+        id_rol=2,
+        activo=True,
+    )
+    try:
+        db.add(db_erabiltzailea)
+        db.commit()
+        db.refresh(db_erabiltzailea)
+        return db_erabiltzailea
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Emaila edo NANa dagoeneko erregistratuta dago.",
+        ) from e
+
+
+def login_erabiltzailea(db: Session, datuak: schemas.ErabiltzaileLogin):
+    erabiltzailea = db.scalar(
+        select(models.Erabiltzaileak).where(
+            func.lower(models.Erabiltzaileak.email) == datuak.email.strip().lower()
+        )
+    )
+
+    if erabiltzailea is None or not auth.pasahitza_egiaztatu(
+        datuak.pasahitza, erabiltzailea.pasahitza
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Emaila edo pasahitza okerra da.",
+        )
+
+    if erabiltzailea.activo is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Erabiltzaile hau desaktibatuta dago.",
+        )
+
+    # Oraindik testu lauan zegoen pasahitza bada, orain hash gisa gordetzen da
+    if not auth.pasahitza_hash_a_da(erabiltzailea.pasahitza):
+        erabiltzailea.pasahitza = auth.get_password_hash(datuak.pasahitza)
+        db.commit()
+        db.refresh(erabiltzailea)
+
+    return {
+        "access_token": auth.sortu_tokena(erabiltzailea.id_erab),
+        "token_type": "bearer",
+        "erabiltzailea": erabiltzailea,
+    }
+
+
 def list_erabiltzaile_erreserba(db: Session, id: int):
     db_erabiltzaile = db.get(models.Erabiltzaileak, id)
     if not db_erabiltzaile:
@@ -156,6 +219,7 @@ def _kargagune_datuak(db: Session, takillak: list[models.Takillak]) -> list[dict
     if not ids:
         return []
 
+    orain = _orain()
     erreserbak_stmt = (
         select(models.Erreserbak.id_hasiera_takilla, func.count())
         .where(
@@ -165,6 +229,19 @@ def _kargagune_datuak(db: Session, takillak: list[models.Takillak]) -> list[dict
         .group_by(models.Erreserbak.id_hasiera_takilla)
     )
     erreserbak_kopurua = dict(db.execute(erreserbak_stmt).all())
+
+    # Orain bertan erreserbatuta dauden postuak (une honetan okupatuta)
+    une_okupatuta_stmt = (
+        select(models.Erreserbak.id_hasiera_takilla, func.count())
+        .where(
+            models.Erreserbak.id_hasiera_takilla.in_(ids),
+            models.Erreserbak.egoera == models.ErreserbakEgoeraEnum.aktiboa,
+            models.Erreserbak.erreserba_hasiera <= orain,
+            models.Erreserbak.erreserba_bukaera > orain,
+        )
+        .group_by(models.Erreserbak.id_hasiera_takilla)
+    )
+    une_okupatuta = dict(db.execute(une_okupatuta_stmt).all())
 
     powerbank_stmt = (
         select(models.Powerbank.id_takilla, func.count())
@@ -181,6 +258,9 @@ def _kargagune_datuak(db: Session, takillak: list[models.Takillak]) -> list[dict
             "egoera": t.egoera,
             "irudiak": [irudi.url for irudi in t.irudiak],
             "postuak_kopurua": len(t.postuak),
+            "postu_libreak": max(
+                len(t.postuak) - une_okupatuta.get(t.id_takilla, 0), 0
+            ),
             "powerbank_kopurua": powerbank_kopurua.get(t.id_takilla, 0),
             "erreserba_aktiboak": erreserbak_kopurua.get(t.id_takilla, 0),
         }
@@ -730,6 +810,11 @@ def list_erreserbak_filtroekin(
 
     erreserbak = db.scalars(stmt).all()
     return [_erreserba_xehetasunak(erreserba) for erreserba in erreserbak]
+
+
+def nire_erreserbak(db: Session, id_erab: int):
+    """Saioa hasita dagoen erabiltzailearen erreserbak."""
+    return list_erreserbak_filtroekin(db, id_erab=id_erab)
 
 
 def get_erreserba(db: Session, id_erreserba: int) -> models.Erreserbak:
