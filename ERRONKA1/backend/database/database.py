@@ -1,7 +1,13 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-URL ="postgresql://postgres:postgres@localhost:5432/powerbank_erreserba"
+import os
+
+# Ingurune-aldagaia erabiliz alda daiteke (probak egiteko oso erabilgarria da)
+URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:postgres@localhost:5432/powerbank_erreserba",
+)
 
 engine = create_engine(
     URL,

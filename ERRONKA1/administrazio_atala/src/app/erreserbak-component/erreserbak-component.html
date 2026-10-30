@@ -1,0 +1,239 @@
+<div class="container-fluid px-4 pb-5">
+  <h2 class="text-center mt-5 mb-4">ERRESERBEN KUDEAKETA</h2>
+
+  <!-- Iragazkiak -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-6 col-lg-3">
+          <label class="form-label mb-1" for="fErabiltzailea">Erabiltzailea</label>
+          <select id="fErabiltzailea" class="form-select" [(ngModel)]="filtroak.id_erab">
+            <option value="">Guztiak</option>
+            @for (erabiltzailea of erabiltzaileak(); track erabiltzailea.id_erab) {
+              <option [value]="erabiltzailea.id_erab">
+                {{ erabiltzailea.izena }} {{ erabiltzailea.abizenak }}
+              </option>
+            }
+          </select>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-3">
+          <label class="form-label mb-1" for="fKargagunea">Kargagunea</label>
+          <select id="fKargagunea" class="form-select" [(ngModel)]="filtroak.id_takilla">
+            <option value="">Guztiak</option>
+            @for (kargagunea of kargaguneak(); track kargagunea.id_takilla) {
+              <option [value]="kargagunea.id_takilla">{{ kargagunea.izena }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-2">
+          <label class="form-label mb-1" for="fPowerbank">Powerbank-a</label>
+          <select id="fPowerbank" class="form-select" [(ngModel)]="filtroak.id_power">
+            <option value="">Guztiak</option>
+            @for (powerbank of powerbankak(); track powerbank.id_power) {
+              <option [value]="powerbank.id_power">#{{ powerbank.id_power }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-2">
+          <label class="form-label mb-1" for="fEgoera">Egoera</label>
+          <select id="fEgoera" class="form-select" [(ngModel)]="filtroak.egoera">
+            <option value="">Guztiak</option>
+            @for (egoera of egoerak; track egoera.balioa) {
+              <option [value]="egoera.balioa">{{ egoera.izena }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="col-6 col-md-3 col-lg-1">
+          <label class="form-label mb-1" for="fHasiera">Noiztik</label>
+          <input id="fHasiera" type="date" class="form-control" [(ngModel)]="filtroak.hasiera" />
+        </div>
+
+        <div class="col-6 col-md-3 col-lg-1">
+          <label class="form-label mb-1" for="fBukaera">Noiz arte</label>
+          <input id="fBukaera" type="date" class="form-control" [(ngModel)]="filtroak.bukaera" />
+        </div>
+
+        <div class="col-12 col-lg-2 d-flex gap-2">
+          <button type="button" class="btn btn-primary flex-grow-1" (click)="bilatu()">
+            Bilatu
+          </button>
+          <button type="button" class="btn btn-outline-secondary" (click)="garbituIragazkiak()">
+            Garbitu
+          </button>
+        </div>
+
+        <div class="col-12 col-lg-2 text-lg-end">
+          <button type="button" class="btn btn-success w-100" (click)="irekiFormularioa()">
+            + Erreserba berria
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (mezua()) {
+    <div class="alert alert-success alert-dismissible" role="alert">
+      {{ mezua() }}
+      <button type="button" class="btn-close" (click)="mezua.set(null)"></button>
+    </div>
+  }
+
+  @if (errorea() && !formularioa()) {
+    <div class="alert alert-danger alert-dismissible" role="alert">
+      {{ errorea() }}
+      <button type="button" class="btn-close" (click)="errorea.set(null)"></button>
+    </div>
+  }
+
+  <!-- Erreserben taula -->
+  <div class="d-flex justify-content-center w-100">
+    <ag-grid-angular
+      style="width: 100%; height: 460px"
+      [rowData]="erreserbak()"
+      [columnDefs]="colDefs"
+      [defaultColDef]="defaultColDef"
+      [pagination]="pagination"
+      [paginationPageSize]="paginationPageSize"
+      [paginationPageSizeSelector]="paginationPageSizeSelector">
+    </ag-grid-angular>
+  </div>
+
+  <p class="text-muted small mt-2 mb-0">
+    Oharra: erreserbak sortzean eta aldatzean negozio-arauak zerbitzarian egiaztatzen dira
+    (gainjartzeak, iraganeko datak, kargagunearen egoera...).
+  </p>
+
+  <!-- Erreserba berriaren formularioa -->
+  @if (formularioa()) {
+    <div class="modal-backdrop fade show"></div>
+    <dialog open class="modal-dialog-custom card p-4 shadow-lg">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="m-0">Erreserba berria</h5>
+        <button type="button" class="btn-close" (click)="itxiFormularioa()"></button>
+      </div>
+
+      <form (ngSubmit)="gorde()">
+        <div class="mb-3">
+          <label for="erabiltzailea" class="form-label">Erabiltzailea:</label>
+          <select
+            id="erabiltzailea"
+            name="erabiltzailea"
+            class="form-select"
+            required
+            [(ngModel)]="form.id_erab">
+            <option [ngValue]="null">— Aukeratu —</option>
+            @for (erabiltzailea of erabiltzaileak(); track erabiltzailea.id_erab) {
+              <option [ngValue]="erabiltzailea.id_erab">
+                {{ erabiltzailea.izena }} {{ erabiltzailea.abizenak }}
+                @if (!erabiltzailea.activo) {
+                  (desaktibatua)
+                }
+              </option>
+            }
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="kargagunea" class="form-label">Kargagunea:</label>
+          <select
+            id="kargagunea"
+            name="kargagunea"
+            class="form-select"
+            required
+            [(ngModel)]="form.id_hasiera_takilla"
+            (ngModelChange)="kargaguneaAldatu()">
+            <option [ngValue]="null">— Aukeratu —</option>
+            @for (kargagunea of kargaguneak(); track kargagunea.id_takilla) {
+              <option [ngValue]="kargagunea.id_takilla">
+                {{ kargagunea.izena }}
+                @if (kargagunea.egoera !== 'erabilgarri') {
+                  ({{ kargagunea.egoera }})
+                }
+              </option>
+            }
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="postua" class="form-label">Karga-postua:</label>
+          <select
+            id="postua"
+            name="postua"
+            class="form-select"
+            required
+            [disabled]="!form.id_hasiera_takilla"
+            [(ngModel)]="form.id_hasiera_postua"
+            (ngModelChange)="postuaAldatu()">
+            <option [ngValue]="null">— Aukeratu —</option>
+            @for (postua of formPostuak(); track postua.id_postu) {
+              <option [ngValue]="postua.id_postu">
+                #{{ postua.id_postu }} — {{ postua.egoera }}
+                @if (!postua.libre) {
+                  (tarte honetan okupatuta egon daiteke)
+                }
+              </option>
+            }
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="powerbank" class="form-label">Powerbank-a:</label>
+          <select
+            id="powerbank"
+            name="powerbank"
+            class="form-select"
+            required
+            [disabled]="!form.id_hasiera_takilla"
+            [(ngModel)]="form.id_power">
+            <option [ngValue]="null">— Aukeratu —</option>
+            @for (powerbank of formPowerbankak(); track powerbank.id_power) {
+              <option [ngValue]="powerbank.id_power">
+                #{{ powerbank.id_power }} — {{ powerbank.karga }}%
+              </option>
+            }
+          </select>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label for="hasiera" class="form-label">Hasiera:</label>
+            <input
+              id="hasiera"
+              name="hasiera"
+              type="datetime-local"
+              class="form-control"
+              required
+              [(ngModel)]="form.hasiera" />
+          </div>
+          <div class="col-12 col-md-6">
+            <label for="bukaera" class="form-label">Bukaera:</label>
+            <input
+              id="bukaera"
+              name="bukaera"
+              type="datetime-local"
+              class="form-control"
+              required
+              [(ngModel)]="form.bukaera" />
+          </div>
+        </div>
+
+        @if (errorea()) {
+          <div class="alert alert-danger mt-3 mb-0" role="alert">{{ errorea() }}</div>
+        }
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <button type="button" class="btn btn-secondary" (click)="itxiFormularioa()">
+            Utzi
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="gordetzen()">
+            {{ gordetzen() ? 'Gordetzen...' : 'Gorde' }}
+          </button>
+        </div>
+      </form>
+    </dialog>
+  }
+</div>

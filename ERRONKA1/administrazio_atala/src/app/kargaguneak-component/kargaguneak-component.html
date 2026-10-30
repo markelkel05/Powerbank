@@ -1,0 +1,253 @@
+<div class="container-fluid px-4 pb-5">
+  <h2 class="text-center mt-5 mb-4">KARGAGUNEEN KUDEAKETA</h2>
+
+  <!-- Iragazkiak eta ekintzak -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body d-flex flex-wrap gap-2 align-items-end">
+      <div class="flex-grow-1" style="min-width: 220px">
+        <label class="form-label mb-1" for="bilaketa">Bilatu</label>
+        <input
+          id="bilaketa"
+          type="text"
+          class="form-control"
+          placeholder="Izena edo helbidea..."
+          [(ngModel)]="bilaketa"
+          (keyup.enter)="bilatu()" />
+      </div>
+
+      <div style="min-width: 200px">
+        <label class="form-label mb-1" for="egoeraFiltroa">Egoera</label>
+        <select id="egoeraFiltroa" class="form-select" [(ngModel)]="egoeraFiltroa">
+          <option value="">Guztiak</option>
+          @for (egoera of egoerak; track egoera.balioa) {
+            <option [value]="egoera.balioa">{{ egoera.izena }}</option>
+          }
+        </select>
+      </div>
+
+      <button type="button" class="btn btn-primary" (click)="bilatu()">Bilatu</button>
+      <button type="button" class="btn btn-outline-secondary" (click)="garbituIragazkiak()">
+        Garbitu
+      </button>
+      <button type="button" class="btn btn-success ms-auto" (click)="irekiFormularioa()">
+        + Kargagune berria
+      </button>
+    </div>
+  </div>
+
+  @if (mezua()) {
+    <div class="alert alert-success alert-dismissible" role="alert">
+      {{ mezua() }}
+      <button type="button" class="btn-close" (click)="mezua.set(null)"></button>
+    </div>
+  }
+
+  @if (errorea()) {
+    <div class="alert alert-danger alert-dismissible" role="alert">
+      {{ errorea() }}
+      <button type="button" class="btn-close" (click)="errorea.set(null)"></button>
+    </div>
+  }
+
+  <!-- Kargaguneen taula -->
+  <div class="d-flex justify-content-center w-100">
+    <ag-grid-angular
+      style="width: 100%; height: 380px"
+      [rowData]="kargaguneak()"
+      [columnDefs]="colDefs"
+      [defaultColDef]="defaultColDef"
+      [pagination]="pagination"
+      [paginationPageSize]="paginationPageSize"
+      [paginationPageSizeSelector]="paginationPageSizeSelector"
+      (rowClicked)="hautatu($event.data)">
+    </ag-grid-angular>
+  </div>
+
+  <!-- Kargagune aukeratuaren xehetasunak -->
+  @if (aukeratua(); as k) {
+    <div class="card shadow-sm mt-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <strong>{{ k.izena }}</strong>
+          <span class="text-muted ms-2">{{ k.helbidea }}</span>
+          <span
+            class="badge ms-2"
+            [ngClass]="k.egoera === 'erabilgarri' ? 'bg-success' : (k.egoera === 'mantentze_lanetan' ? 'bg-warning text-dark' : 'bg-danger')">
+            {{ k.egoera }}
+          </span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="aukeratua.set(null)">
+          Itxi
+        </button>
+      </div>
+
+      <div class="card-body row g-4">
+        <!-- Irudiak -->
+        <div class="col-12 col-lg-5">
+          <h6 class="mb-3">Irudiak</h6>
+
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            @for (irudia of k.irudien_xehetasuna ?? []; track irudia.id_irudi) {
+              <div class="irudi-karta">
+                <img [src]="irudiOsoa(irudia.url)" [alt]="k.izena" />
+                <button
+                  type="button"
+                  class="btn btn-danger btn-sm irudi-ezabatu"
+                  title="Ezabatu"
+                  (click)="ezabatuIrudia(irudia.id_irudi)">
+                  ✕
+                </button>
+              </div>
+            } @empty {
+              <p class="text-muted">Kargagune honek ez du irudirik.</p>
+            }
+          </div>
+
+          <label class="form-label">Irudi berria (URL)</label>
+          <div class="input-group mb-2">
+            <input
+              type="url"
+              class="form-control"
+              placeholder="https://..."
+              [(ngModel)]="irudiUrl" />
+            <button class="btn btn-outline-primary" type="button" (click)="gehituIrudiaUrl()">
+              Gehitu
+            </button>
+          </div>
+
+          <label class="form-label">...edo fitxategia igo (gehienez 5 MB)</label>
+          <input type="file" class="form-control" accept="image/*" (change)="igoIrudia($event)" />
+        </div>
+
+        <!-- Karga-postuak -->
+        <div class="col-12 col-lg-7">
+          <h6 class="mb-3">Karga-postuak ({{ k.postuak_kopurua }})</h6>
+
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Egoera</th>
+                  <th>Powerbank</th>
+                  <th>Libre?</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (postua of k.postuak ?? []; track postua.id_postu) {
+                  <tr>
+                    <td>#{{ postua.id_postu }}</td>
+                    <td>
+                      <select
+                        class="form-select form-select-sm"
+                        [ngModel]="postua.egoera"
+                        (ngModelChange)="aldatuPostuEgoera(postua, $event)">
+                        @for (egoera of postuEgoerak; track egoera.balioa) {
+                          <option [value]="egoera.balioa">{{ egoera.izena }}</option>
+                        }
+                      </select>
+                    </td>
+                    <td>
+                      @if (postua.powerbank) {
+                        #{{ postua.powerbank.id_power }} ({{ postua.powerbank.karga }}%)
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                    <td>
+                      <span class="badge" [ngClass]="postua.libre ? 'bg-success' : 'bg-secondary'">
+                        {{ postua.libre ? 'Bai' : 'Ez' }}
+                      </span>
+                    </td>
+                    <td class="text-end">
+                      <button
+                        type="button"
+                        class="btn btn-outline-danger btn-sm"
+                        (click)="ezabatuPostua(postua)">
+                        Ezabatu
+                      </button>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="5" class="text-muted">Kargagune honek ez du karga-posturik.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="d-flex gap-2 align-items-end">
+            <div style="min-width: 180px">
+              <label class="form-label mb-1" for="postuEgoera">Postu berriaren egoera</label>
+              <select id="postuEgoera" class="form-select" [(ngModel)]="postuEgoera">
+                @for (egoera of postuEgoerak; track egoera.balioa) {
+                  <option [value]="egoera.balioa">{{ egoera.izena }}</option>
+                }
+              </select>
+            </div>
+            <button type="button" class="btn btn-success" (click)="gehituPostua()">
+              + Karga-postua
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Formularioa -->
+  @if (formularioa()) {
+    <div class="modal-backdrop fade show"></div>
+    <dialog open class="modal-dialog-custom card p-4 shadow-lg">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="m-0">{{ editatzen() ? 'Kargagunea aldatu' : 'Kargagune berria' }}</h5>
+        <button type="button" class="btn-close" (click)="itxiFormularioa()"></button>
+      </div>
+
+      <form (ngSubmit)="gorde()">
+        <div class="mb-3">
+          <label for="izena" class="form-label">Izena:</label>
+          <input
+            id="izena"
+            name="izena"
+            type="text"
+            class="form-control"
+            required
+            minlength="2"
+            [(ngModel)]="inprimakia.izena" />
+        </div>
+
+        <div class="mb-3">
+          <label for="helbidea" class="form-label">Helbidea:</label>
+          <input
+            id="helbidea"
+            name="helbidea"
+            type="text"
+            class="form-control"
+            required
+            minlength="3"
+            [(ngModel)]="inprimakia.helbidea" />
+        </div>
+
+        <div class="mb-3">
+          <label for="egoera" class="form-label">Egoera:</label>
+          <select id="egoera" name="egoera" class="form-select" [(ngModel)]="inprimakia.egoera">
+            @for (egoera of egoerak; track egoera.balioa) {
+              <option [value]="egoera.balioa">{{ egoera.izena }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <button type="button" class="btn btn-secondary" (click)="itxiFormularioa()">
+            Utzi
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="gordetzen()">
+            {{ gordetzen() ? 'Gordetzen...' : 'Gorde' }}
+          </button>
+        </div>
+      </form>
+    </dialog>
+  }
+</div>
